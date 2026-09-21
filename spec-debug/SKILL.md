@@ -222,7 +222,7 @@ spec-tester 发现 bug
 - 只修改「任务进度」/「问题闭环记录」/「决策记录」/「修复循环预算」，不要修改 TeamLead 其他控制面区块
 - 向 AWR 提交修复轮次会话检查点：
   ```bash
-  awr session checkpoint --session <SESSION-ID> --digest "spec-debugger: 完成第 {rounds_used} 轮修复，产出 debug-xxx-fix.html" --next-action "spec-tester: 重新验证测试用例 TC-XXX" --expected-revision <REV>
+  bash .agents/skills/scripts/rk-awr-checkpoint.sh --work <SPEC-ID> --agent spec-debugger --digest "spec-debugger: 完成第 {rounds_used} 轮修复，产出 debug-xxx-fix.html" --next-action "spec-tester: 重新验证测试用例 TC-XXX"
   ```
 如果预算未触上限：
 

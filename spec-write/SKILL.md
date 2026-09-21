@@ -151,7 +151,7 @@ description: >
 4. 只修改「任务进度」/「决策记录」/「问题闭环记录」，不要修改 TeamLead 控制面区块
 5. 向 AWR 提交设计完成会话检查点：
    ```bash
-   awr session checkpoint --session <SESSION-ID> --digest "spec-writer: plan.html 完成，已记录接口定义、数据结构、实现步骤与决策记录" --next-action "待用户确认 writer/plan.html" --expected-revision <REV>
+   bash .agents/skills/scripts/rk-awr-checkpoint.sh --work <SPEC-ID> --agent spec-writer --digest "spec-writer: plan.html 完成，已记录接口定义、数据结构、实现步骤与决策记录" --next-action "待用户确认 writer/plan.html"
    ```
 6. 等待 `writer/plan.html` 通过确认：`gated` 等用户确认，`autopilot` 以完备度闸门四项 + 自审四问的逐条结论落账本替代
 7. 通知 TeamLead，TeamLead 触发实现阶段（spec-execute）

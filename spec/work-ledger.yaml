@@ -45,3 +45,16 @@ work_items:
       - README.md 与 spec-init/SKILL.md 同步更新分发说明
       - 验证浅克隆后 git pull --ff-only 增量更新兼容性
     next_action: PR #8 已合入 master，全部验收项已闭环
+
+  - id: SKILL-AWR-003
+    title: AWR 运行时闭环强化（脚手架开箱修复、会话检查点脚本与零缺口门禁）
+    status: completed
+    goal: rk-flow-core
+    acceptance:
+      - 修复 scripts/init-ai-workflow.{sh,ps1} 开箱结构缺口，确保新建项目 AWR 0 缺口就绪
+      - 新增 scripts/rk-awr-checkpoint.{sh,ps1} 跨平台会话检查点脚本，在各角色/版本 Skill 中消除伪代码占位符
+      - 在 spec-test 增加测试证据落地契约，在 spec-review 与 spec-end 增加零缺口硬门禁（支持 Bash 与 PowerShell 双端）
+    evidence:
+      - locator: "scripts/rk-awr-checkpoint.sh"
+        summary: "沙箱端到端实测验证通过：新项目开箱 0 结构缺口，会话检查点正常保存并支持 --end 正常关闭"
+    next_action: 代码变更已自洽闭环，创建分支并提交 PR

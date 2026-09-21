@@ -117,7 +117,7 @@ bug 修复仍由 spec-debugger 负责。
 
 - 向 AWR 提交实现阶段会话检查点，绑定本轮新鲜验证证据：
   ```bash
-  awr session checkpoint --session <SESSION-ID> --digest "spec-executor: 完成代码实现与单元测试，证据保存在 executor/artifacts/" --next-action "spec-tester: 执行集成测试并产出 test-report.html" --expected-revision <REV>
+  bash .agents/skills/scripts/rk-awr-checkpoint.sh --work <SPEC-ID> --agent spec-executor --digest "spec-executor: 完成代码实现与单元测试，证据保存在 executor/artifacts/" --next-action "spec-tester: 执行集成测试并产出 test-report.html"
   ```
 ```text
 通知 TeamLead：executor/summary.html 已完成，请发起用户确认，并在确认后启动 spec-tester 执行测试。

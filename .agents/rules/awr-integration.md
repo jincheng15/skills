@@ -1,4 +1,4 @@
-# AWR 运行时接入规范（v0.4.0 标准）
+# AWR 运行时接入规范（v0.5.0 标准）
 
 ## 定位
 
@@ -15,7 +15,7 @@ AWR（Agent Work Runtime）是 R&K Flow 的运行时状态层，不替代 R&K Fl
 
 `spec/context/` 可以交给 AWR 做索引和按任务编译，但不能交出权威性。AWR 接管“上下文编译与分发”，R&K Flow 保留“上下文来源、规则解释和最终判断”。
 
-在 AWR 0.4.0+ 体系下，每次角色开工或接续前，优先使用组合准备命令提取聚焦上下文：
+在 AWR 0.5.0+ 体系下，每次角色开工或接续前，优先使用组合准备命令提取聚焦上下文：
 ```bash
 awr work prepare <SPEC-ID> --response-view summary
 ```
@@ -30,26 +30,34 @@ awr work prepare <SPEC-ID> --response-view summary
 - HTML `rk-note` → AWR review/open-loop task；`data-note-id` 是稳定关联键。处理后必须回写标准 `rk-note is-done` Callout，并在下一轮 session checkpoint 中关闭对应 open loop。
 - 会话检查点（Session Checkpoint）必须通过 `awr session checkpoint` 写入，记录 digest、证据路径、未完成项、阻塞和下一动作；checkpoint 不等于测试通过。
 
-## 强制运行顺序（AWR 0.4.0 标准流）
+## 强制运行顺序（AWR 0.5.0 标准流）
 
 1. **查待办与准备**：
    ```bash
    awr ready
    awr work prepare <SPEC-ID> --response-view summary
    ```
-2. **打卡入场（会话认领）**：
+2. **打卡入场（可选会话认领）**：
+   若需要显式声明 Agent 租约认领，执行：
    ```bash
-   awr session start --work <SPEC-ID> --agent <AGENT-ROLE> --provider omp --model default --expected-revision <REV>
+   REV=$(awr status --json 2>/dev/null | python3 -c "import sys, json; print(json.load(sys.stdin).get('project_revision',''))")
+   awr session start --work <SPEC-ID> --agent <AGENT-ROLE> --provider omp --model default --expected-revision "$REV"
    ```
 3. **查验门禁**：读取上下文引用的 R&K 原始产物并检查计划确认状态。
 4. **严格执行**：按当前角色 Skill 执行，不超出已确认计划。
 5. **新鲜验证**：在当前工作树完成真实测试与输出采集。
 6. **落盘事实**：写 R&K 正式 HTML 报告和账本。
 7. **会话盖章**：
-   ```bash
-   awr session checkpoint --session <SESSION-ID> --context-hash <HASH> --digest "<本次完成简述>" --next-action "<下一步动作>" --expected-revision <REV>
-   ```
-8. **更新台账**：将状态与下一步写回 `spec/work-ledger.yaml` 与 `lead/team-context.md`。
+   使用封装辅助脚本自动提取 Session ID、Context Hash 与 Revision 写入检查点（下游工程路径为 `.agents/skills/scripts/...`，skills 本仓调试路径为 `scripts/...`）：
+   - **Linux / macOS / Git Bash 环境**：
+     ```bash
+     bash .agents/skills/scripts/rk-awr-checkpoint.sh --work <SPEC-ID> --agent <AGENT-ROLE> --digest "<本次完成简述>" --next-action "<下一步动作>"
+     ```
+   - **Windows 原生 PowerShell 环境**：
+     ```powershell
+     powershell -ExecutionPolicy Bypass -File .agents\skills\scripts\rk-awr-checkpoint.ps1 -Work <SPEC-ID> -Agent <AGENT-ROLE> -Digest "<本次完成简述>" -NextAction "<下一步动作>"
+     ```
+8. **更新台账**：将状态与下一步写回工作台账（如 `work-ledger.yaml`）与 `lead/team-context.md`。
 
 ## 并发与恢复
 
@@ -60,4 +68,4 @@ awr work prepare <SPEC-ID> --response-view summary
 
 ## 接入配置与数据安全
 
-AWR 项目配置统一放在 `.awr/project.toml`；运行数据库、日志和临时状态不提交。配置必须排除旧历史归档和生成物，纳入当前 `spec/context/`、活跃 Version/Spec、规则和报告来源。首次初始化先使用 `--manifest` 明确 Primary 账本与 Supporting 计划文档，禁止无约束全盘暴力扫描；在版本归档时可通过 `awr runtime backup` 进行一致性冷备。
+AWR 项目配置统一放在 `.awr/project.toml`；运行数据库、日志和临时状态不提交。配置必须排除旧历史归档和生成物，纳入当前 `spec/context/`、活跃 Version/Spec、规则和报告来源。首次初始化先使用 `--manifest` 明确 Primary 账本与 Supporting 计划文档，禁止无约束全盘暴力扫描；在版本归档时可通过 `mkdir -p .awr-backups && awr runtime backup --output ".awr-backups/<version>-$(date +%Y%m%d-%H%M%S)"` 进行一致性冷备。

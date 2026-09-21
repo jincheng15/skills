@@ -42,7 +42,7 @@ description: >
 
 ### 步骤 1：接收任务并获取 AWR 聚焦上下文
 
-从 TeamLead 的启动指令中获取任务描述、范围与 Spec 目录。开工前先通过 AWR 0.4.0+ 组合命令准备聚焦上下文：
+从 TeamLead 的启动指令中获取任务描述、范围与 Spec 目录。开工前先通过 AWR 0.5.0+ 组合命令准备聚焦上下文：
 
 ```bash
 awr work prepare <SPEC-ID> --response-view summary
@@ -197,7 +197,7 @@ awr work prepare <SPEC-ID> --response-view summary
 更新账本后，向 AWR 提交本阶段会话检查点：
 
 ```bash
-awr session checkpoint --session <SESSION-ID> --digest "spec-explorer: 完成背景探索与可行性分析，产出 exploration-report.html" --next-action "spec-writer: 撰写设计方案 writer/plan.html" --expected-revision <REV>
+bash .agents/skills/scripts/rk-awr-checkpoint.sh --work <SPEC-ID> --agent spec-explorer --digest "spec-explorer: 完成背景探索与可行性分析，产出 exploration-report.html" --next-action "spec-writer: 撰写设计方案 writer/plan.html"
 ```
 
 记录探索阶段的关键发现、识别的风险项、下游 spec-writer 与 spec-tester 的输入指针。

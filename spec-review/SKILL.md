@@ -21,6 +21,11 @@ description: 审查 Spec 执行完成情况，检验实现是否严格按照 Spe
 
 ## 核心规则
 
+### 审查基调与立场
+
+- **保持中立客观，优先指出方案与实现的缺陷与不足**，拒绝盲目附和与形式化夸赞；
+- 重点识别方案漏洞、逻辑断裂、漏判边界与竞态条件，结论必须给出明确的失效场景与可验证依据；
+- **支持对抗式红蓝审查流**：若由独立高阶模型或专职红队审查，严格执行「审查方附带最小反例 + 修复方先复现实测 + 同一反例对称验证」的闭环契约（详见 `references/review-rubric.md`）。
 ### 确认方式随模式（必须执行）
 
 **介入方式随模式**：`gated` 模式下 spec-reviewer 可选，由 TeamLead 按需启动；`autopilot` 模式下 **spec-reviewer 强制介入**，因为它是自动驾驶下唯一的独立视角，没有它就没有任何人核对「实现是否等于已确认的 plan」。
@@ -76,8 +81,10 @@ description: 审查 Spec 执行完成情况，检验实现是否严格按照 Spe
 - **🟡 `major`**：行为与 plan 不符，或存在明确的失败路径未处理，应在本 Spec 内修
 - **🟢 `minor`**：可读性、命名、重复代码等，记录为延后项，不阻塞
 
-### 步骤 6：审查报告要求
+AWR 状态机与结构一致性检查：
+核对当前 Spec 是否在工作台账（如 `work-ledger.yaml`）中完整登记、是否正确关联目标（`goal`）、验收标准是否与 `plan.html` 逐条一致，以及是否存在未决的 AWR 结构缺口（Gaps）。若存在断裂缺口，按上述标准记为 `major` 级问题要求修复。
 
+### 步骤 6：审查报告要求
 - 撰写报告前先读 `html-report` skill，确认最新的骨架、修订规范和禁止事项
 - 元信息与正文模板详见 [references/review-template.html](references/review-template.html)
 - 每个检查项必须标注具体的 Spec 位置和代码位置，代码位置写成 `<span class="rk-ref">src/x.ts:88</span>`
@@ -97,7 +104,7 @@ description: 审查 Spec 执行完成情况，检验实现是否严格按照 Spe
 - 若发现阻塞问题，在「问题闭环记录」中追加问题行，「分类」按性质选（`bug` / `scope` / `process` 等），「发现者」 写 `spec-reviewer`，`owner` 建议写 `TeamLead` 或 `spec-debugger`
 - 向 AWR 提交审查结论会话检查点：
   ```bash
-  awr session checkpoint --session <SESSION-ID> --digest "spec-reviewer: 完成 Spec 一致性审查，结论产出在 reviewer/review.html" --next-action "spec-ender: 进行收尾复盘与原位归档" --expected-revision <REV>
+  bash .agents/skills/scripts/rk-awr-checkpoint.sh --work <SPEC-ID> --agent spec-reviewer --digest "spec-reviewer: 完成 Spec 一致性审查，结论产出在 reviewer/review.html" --next-action "spec-ender: 进行收尾复盘与原位归档"
   ```
 - 只修改「任务进度」/「问题闭环记录」，不要修改 TeamLead 控制面区块
 `gated` 模式的用户响应处理：

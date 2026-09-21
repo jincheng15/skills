@@ -121,6 +121,102 @@ exp-reflect 会根据经验的重要性分流：
 
 然后跑一次全量测试并观察输出。**测试全绿之后才出收尾菜单**——红着的时候先把它变绿或交回用户决策，不要问用户「要不要归档」。
 
+**AWR 零缺口硬门禁（Zero-Gap Gate）**：
+在提请归档前，执行 AWR 静态结构与组织状态完整性检查：
+- **Linux / macOS / Git Bash 环境**：
+  ```bash
+  if ! command -v awr >/dev/null 2>&1; then
+      echo "⚠️ 未安装 awr 命令，跳过 AWR 结构缺口检查"
+  elif ! inspect_out=$(awr intake inspect --json 2>/dev/null); then
+      echo "❌ AWR 诊断命令执行失败，请检查 .awr/ 配置与源文件语法"
+      exit 1
+  elif command -v python3 >/dev/null 2>&1; then
+      if ! printf "%s" "$inspect_out" | python3 -c 'import sys, json
+try:
+    data = json.load(sys.stdin)
+except Exception as e:
+    sys.stderr.write(f"❌ 无法解析 AWR 诊断输出: {e}\n")
+    sys.exit(1)
+
+org = data.get("organization")
+if not isinstance(org, dict):
+    sys.stderr.write("❌ AWR 诊断响应缺少 organization 组织节点\n")
+    sys.exit(1)
+
+all_gaps = org.get("gaps", [])
+# 过滤阻断性结构缺口（目标未关联、验收项缺失、状态机断裂等）
+# 白名单排除项：
+# 1. completion_not_checked（未传 --source-sha 时对历史已完成项的审计提示）
+# 2. intake_work_only / business_work_missing（项目初始仅有 INTAKE-001 时的脚手架组织提示）
+IGNORABLE_CODES = {"completion_not_checked", "intake_work_only", "business_work_missing"}
+blocking_gaps = [g for g in all_gaps if g.get("code") not in IGNORABLE_CODES]
+
+if len(blocking_gaps) > 0:
+    for bg in blocking_gaps:
+        code = bg.get("code", "unknown")
+        target = bg.get("target", "-")
+        detail = bg.get("detail", "")
+        sys.stderr.write(f"   - [{code}] {target}: {detail}\n")
+    sys.exit(1)
+
+print("✅ AWR 结构缺口检查通过 (0 Blocking Gaps)")'; then
+          exit 1
+      fi
+  elif command -v jq >/dev/null 2>&1; then
+      if ! printf "%s" "$inspect_out" | jq -e '.organization' >/dev/null 2>&1; then
+          echo "❌ AWR 诊断响应缺少 organization 组织节点"
+          exit 1
+      fi
+      blocking_count=$(printf "%s" "$inspect_out" | jq -r '[.organization.gaps[]? | select(.code != "completion_not_checked" and .code != "intake_work_only" and .code != "business_work_missing")] | length' 2>/dev/null || echo "error")
+      if [ "$blocking_count" = "error" ]; then
+          echo "❌ 无法解析 AWR 诊断响应"
+          exit 1
+      elif [ "$blocking_count" -gt 0 ]; then
+          echo "❌ 存在 $blocking_count 个 AWR 阻塞性结构缺口，禁止结项归档！"
+          exit 1
+      fi
+      echo "✅ AWR 结构缺口检查通过 (0 Blocking Gaps)"
+  else
+      echo "❌ 门禁阻断: 系统未检测到 python3 或 jq 解析器，无法完成 AWR 结构缺口严格审计，拒绝归档！"
+      exit 1
+  fi
+  ```
+- **Windows 原生 PowerShell 环境**：
+  ```powershell
+  if (-not (Get-Command awr -ErrorAction SilentlyContinue)) {
+      Write-Host "⚠️ 未安装 awr 命令，跳过 AWR 结构缺口检查" -ForegroundColor Yellow
+  } else {
+      $errFile = [System.IO.Path]::GetTempFileName()
+      $rawJson = & awr intake inspect --json 2>$errFile
+      $rawErr = if (Test-Path $errFile) { Get-Content $errFile -Raw -ErrorAction SilentlyContinue } else { "" }
+      Remove-Item -Force $errFile -ErrorAction SilentlyContinue
+      if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($rawJson)) {
+          Write-Host "❌ AWR 诊断命令执行失败，请检查 .awr/ 配置与源文件" -ForegroundColor Red
+          if ($rawErr) { Write-Host "AWR 错误: $rawErr" -ForegroundColor Yellow }
+          exit 1
+      }
+      $inspect = $null
+      try { $inspect = ($rawJson -join "`n") | ConvertFrom-Json } catch { }
+      if (-not $inspect -or -not $inspect.organization) {
+          Write-Host "❌ AWR 诊断响应解析失败或缺少 organization 节点" -ForegroundColor Red
+          exit 1
+      }
+      $allGaps = @($inspect.organization.gaps)
+      $ignorable = @("completion_not_checked", "intake_work_only", "business_work_missing")
+      $blockingGaps = @($allGaps | Where-Object { $ignorable -notcontains $_.code })
+      if ($blockingGaps.Count -gt 0) {
+          Write-Host "❌ 存在 $($blockingGaps.Count) 个 AWR 阻塞性结构缺口，禁止结项归档！详情:" -ForegroundColor Red
+          foreach ($bg in $blockingGaps) {
+              Write-Host "   - [$($bg.code)] $($bg.target): $($bg.detail)" -ForegroundColor Red
+          }
+          exit 1
+      }
+      Write-Host "✅ AWR 结构缺口检查通过 (0 Blocking Gaps)" -ForegroundColor Green
+  }
+  ```
+
+若返回非 0 退出码，必须回退排查并闭环工作项的目标关联、验收准则或测试证据，严禁带缺口归档。
+
 `gated` 模式下向用户确认：
 
 ```text
@@ -139,7 +235,7 @@ exp-reflect 会根据经验的重要性分流：
 
 1. **原位归档更新**：保留当前 Spec 在所属 Version 的原物理目录（`spec/versions/<version>/specs/<spec-dir>/`），禁止移出目录。在 `lead/team-context.md` 中将 `status` 更新为 `archived`，并在所属版本的 `spec/versions/<version>/version-context.md` Spec 清单中将本 Spec 标记为 `done`。同步向 AWR 提交最终会话检查点：
    ```bash
-   awr session checkpoint --session <SESSION-ID> --digest "spec-ender: Spec 原位归档完成，测试全绿，已创建 PR/MR，产出 end-report.html" --next-action "Spec 已完结，等待合流与版本集成" --expected-revision <REV>
+   bash .agents/skills/scripts/rk-awr-checkpoint.sh --work <SPEC-ID> --agent spec-ender --digest "spec-ender: Spec 原位归档完成，测试全绿，已创建 PR/MR，产出 end-report.html" --next-action "Spec 已完结，等待合流与版本集成"
    ```
 2. 调用 `/git-work` 的“完成 Spec 分支”模式：
    - 确认当前分支不等于远程默认分支（`git symbolic-ref refs/remotes/origin/HEAD` 读出，不要假定分支名）
